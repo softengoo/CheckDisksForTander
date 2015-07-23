@@ -34,6 +34,7 @@ def main(stage=0, count=0, **params):
 		else:
 			write_log('---FINISH---')
 	# initiating connection to server
+	# TODO: ports (rpc, video)
 	# TODO: cloud login in Trassit 3.3 / 4.0
 	elif stage == 1 and params.get('connection') and len(params['connection']) >= 3:
 		network_add = settings('network/network_node_add')
