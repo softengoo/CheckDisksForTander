@@ -36,8 +36,7 @@ def log_text(text, show_messages=True):
 	if show_messages:
 		message(str(text))	
 def list_sort_string(x):
-	x = list(x); x.sort()
-	return ''.join(x)
+	return ''.join(sorting(list(x)))
 def set_settings(settings_name, settings_parameter, settings_value):
 	try:
 		if settings(settings_name)[settings_parameter] != settings_value:
