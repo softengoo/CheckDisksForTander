@@ -6,6 +6,9 @@
 	<version>1.0</version>
 </parameters>
 '''
+is_write_logs_1 = True
+is_write_logs_2 = False
+
 connection_duration = 10
 
 import datetime
@@ -30,6 +33,7 @@ def main(stage=0, count=0, **params):
 			timeout(10, lambda: main(stage+1, **params))
 		elif params.get('connections'):
 			params['connection'] = params['connections'].pop(0)
+			write_log('>%s' % params['connection'][0])
 			timeout(10, lambda: main(**params))
 		else:
 			write_log('---FINISH---')
@@ -50,6 +54,8 @@ def main(stage=0, count=0, **params):
 		guid = params['guid']
 		node = settings('network/' + guid)
 		connected, last_error = node.cd('stats')['connected'], node.cd('stats')['last_error']
+		if is_write_logs_1 and not count: write_log(' counting, error "%s"' % last_error)
+		if is_write_logs_2: write_log('  c %s, e "%s"' % (count, last_error))
 		params['connected'] = connected
 		if connected:
 			timeout(connection_duration, lambda: main(stage+1, **params))
@@ -59,11 +65,14 @@ def main(stage=0, count=0, **params):
 		elif not connected and count <= 100 and not last_error:
 			timeout(500, lambda: main(stage, count+1, **params))
 		elif not connected and (count > 100 or last_error):
-			write_log('ERROR for %s: "%s"' % (params['connection'][0], last_error))
+			write_log(' ERROR for %s: "%s"' % (params['connection'][0], last_error))
 			timeout(10, lambda: main(stage+1, **params))
 		else:
 			timeout(10, lambda: main(100))
 	# getting guid of connected server
+	# TODO: or [x.guid for x in settings('/').ls() if not x.type == 'RemoteServer']
+	#      other possibilities: LocalServer, Client, NetworkNode
+	#      interesting list: [x.guid for x in settings('/').ls() if not x.type]
 	elif stage == 3 and params.has_key('connected'):
 		if params['connected']:
 			guid = params['guid']
@@ -73,17 +82,30 @@ def main(stage=0, count=0, **params):
 				)[-1].split('-')[0]
 			if server_guid:
 				params['server_guid'] = server_guid
-			write_log('GUID for %s: %s' % (params['connection'][0], server_guid))
+			write_log(' GUID for %s: %s' % (params['connection'][0], server_guid))
 		timeout(10, lambda: main(stage+1, **params))
 	# getting name of connected server
 	# TODO: 	waiting of full settings-tree loading instead
 	elif stage == 4 and params.has_key('connected'):
 		if params['connected'] and params.get('server_guid') and is_trassir_guid(params['server_guid']):
 			server_guid = params['server_guid']
+			# TODO: write as recursion
+			leaves = []
+			for x1 in settings('/%s'%server_guid).ls():
+				leaves.append(x1.guid)
+				for x2 in settings('/%s/%s' % (server_guid, x1.guid)).ls():
+					leaves.append(x2.guid)
+					for x3 in settings('/%s/%s/%s' % (server_guid, x1.guid, x2.guid)).ls():
+						leaves.append(x3.guid)
+						for x4 in settings('/%s/%s/%s/%s' % (server_guid, x1.guid, x2.guid, x3.guid)).ls():
+							leaves.append(x4.guid)
+			write_log('  LEAVES = %s' % len(leaves))
 			try:
 				server_name = settings('/%s'%server_guid)['name']
 			except KeyError as e:
-				if count < 10:
+				if is_write_logs_1 and not count: write_log('  NO ALL LEAVES = %s, counting' % len(leaves))
+				if is_write_logs_2: write_log('   c %s, LEAVES = %s' % (count, len(leaves)))
+				if count < 100:
 					timeout(500, lambda: main(stage, count+1, **params))
 				else:
 					params['connected'] = 0
@@ -97,7 +119,7 @@ def main(stage=0, count=0, **params):
 		if params['connected'] and params.get('server_guid') and is_trassir_guid(params['server_guid']):
 			server_guid = params['server_guid']
 			scripts = [x['name'] for x in settings('/%s/scripts' % server_guid).ls() if x.type == 'Script']
-			write_log('   SCRIPTS for %s: %s' % (params['connection'][0], ', '.join(scripts)))
+			#write_log('   SCRIPTS for %s: %s' % (params['connection'][0], ', '.join(scripts)))
 		timeout(10, lambda: main(stage+1, **params))
 	# disconnection from server, remove it from connections in settings-tree
 	elif stage == 6 and params.has_key('connected'):
@@ -124,6 +146,7 @@ def main(stage=0, count=0, **params):
 		
 		
 write_log('---START---')
+# TODO: check if file exists
 with open('distributeScripts.servers', 'r') as connections_file:
 	connections = [
 			tuple(x) 
@@ -131,6 +154,7 @@ with open('distributeScripts.servers', 'r') as connections_file:
 						connections_file, 
 						doublequote=True, skipinitialspace=True
 					)
-				if x and len(x) >=3
+				if x and len(x) >=3 
+					and not x[0].startswith('-') # conneting: - before address or CloudID
 		]
 main(connections=connections)
