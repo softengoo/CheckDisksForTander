@@ -207,12 +207,8 @@ def process1(guid):
 		write_log('      PROCESS: DISK {0[disk_id]}, {0[capacity_gb]} GB'.format(disk))
 		write_log('      PROCESS: DISK %s, Error "%s"' % (disk['disk_id'], disk.cd('stats')['last_error_code']))
 	for user in [x for x in settings('/%s/users' % guid).ls() if x.type != 'UserAdd']:
-		#try:
 		write_log('      PROCESS: USER {0[name]}, base rights {0[base_rights]}'.format(user))
-		#except KeyError: pass
-		#try:
 		write_log('      PROCESS: USER %s, Last login from "%s"' % (user['name'], user['last_login_address']))
-		#except KeyError: pass
 
 # timeout neede for finalizing delete_network_nodes function
 timeout(
